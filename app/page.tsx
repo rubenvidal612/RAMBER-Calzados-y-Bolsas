@@ -62,7 +62,7 @@ export default function Home() {
 
     <div className={`menu-overlay ${menuOpen ? "open" : ""}`} aria-hidden={!menuOpen}>
       <button className="close-menu" onClick={() => setMenuOpen(false)}>Cerrar</button>
-      <nav><button onClick={() => goTo("inicio")}>Inicio</button><a href="/bolsas">Bolsas</a><button onClick={() => goTo("calzado")}>Calzado dama</button><button onClick={() => goTo("calzado")}>Calzado infantil</button><a href="/mayoreo">Mayoreo</a><button onClick={() => goTo("destacados")}>Novedades</button><button onClick={() => goTo("oportunidad")}>Vende sin invertir</button><button onClick={() => goTo("catalogos")}>Catálogos</button><button onClick={() => goTo("pedidos")}>Pedidos</button><button onClick={() => goTo("contacto")}>Contacto</button><a href="/admin">Admin</a></nav>
+      <nav><button onClick={() => goTo("inicio")}>Inicio</button><a className="admin-menu-link" href="/admin">Admin</a><a href="/bolsas">Bolsas</a><button onClick={() => goTo("calzado")}>Calzado dama</button><button onClick={() => goTo("calzado")}>Calzado infantil</button><a href="/mayoreo">Mayoreo</a><button onClick={() => goTo("destacados")}>Novedades</button><button onClick={() => goTo("oportunidad")}>Vende sin invertir</button><button onClick={() => goTo("catalogos")}>Catálogos</button><button onClick={() => goTo("pedidos")}>Pedidos</button><button onClick={() => goTo("contacto")}>Contacto</button></nav>
       <p>Estilo que te acompaña.</p>
     </div>
 
