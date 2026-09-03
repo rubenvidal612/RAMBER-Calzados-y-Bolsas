@@ -13,3 +13,12 @@ export const newsItems = sqliteTable("news_items", {
   imageUrl: text("image_url").notNull().default(""),
   createdAt: text("created_at").notNull(),
 });
+
+export const shoeGalleryItems = sqliteTable("shoe_gallery_items", {
+  id: integer("id").primaryKey({ autoIncrement: true }),
+  category: text("category").notNull(),
+  title: text("title").notNull(),
+  caption: text("caption").notNull().default(""),
+  imageUrl: text("image_url").notNull(),
+  createdAt: text("created_at").notNull(),
+});

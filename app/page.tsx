@@ -44,6 +44,7 @@ export default function Home() {
     americas: "RAMBER Plaza Las Américas · Villahermosa, Tabasco",
   });
   const [news, setNews] = useState<Array<{ id: number; title: string; body: string; imageUrl: string }>>([]);
+  const [shoeGallery, setShoeGallery] = useState<Array<{ id: number; category: string; title: string; caption: string; imageUrl: string }>>([]);
   const featuredProducts = [
     { code: content.productOneCode, name: content.productOneName, color: content.productOneColor, image: content.productOneImage },
     { code: content.productTwoCode, name: content.productTwoName, color: content.productTwoColor, image: content.productTwoImage },
@@ -58,6 +59,8 @@ export default function Home() {
     document.querySelectorAll(".reveal").forEach((element) => observer.observe(element));
     return () => observer.disconnect();
   }, []);
+
+  useEffect(() => { fetch("/api/gallery").then((response) => response.json()).then((data) => setShoeGallery(data.items || [])).catch(() => undefined); }, []);
 
   useEffect(() => {
     fetch("/api/content").then((response) => response.json()).then((data) => {
@@ -90,7 +93,7 @@ export default function Home() {
 
     <div className={`menu-overlay ${menuOpen ? "open" : ""}`} aria-hidden={!menuOpen}>
       <button className="close-menu" onClick={() => setMenuOpen(false)}>Cerrar</button>
-      <nav><button onClick={() => goTo("inicio")}>Inicio</button><a className="admin-menu-link" href="/admin">Admin</a><a href="/bolsas">Bolsas</a><button onClick={() => goTo("calzado")}>Calzado dama</button><button onClick={() => goTo("calzado")}>Calzado infantil</button><a href="/mayoreo">Mayoreo</a><button onClick={() => goTo("destacados")}>Novedades</button><button onClick={() => goTo("oportunidad")}>Vende sin invertir</button><button onClick={() => goTo("catalogos")}>Catálogos</button><button onClick={() => goTo("pedidos")}>Pedidos</button><button onClick={() => goTo("contacto")}>Contacto</button></nav>
+      <nav><button onClick={() => goTo("inicio")}>Inicio</button><a className="admin-menu-link" href="/admin">Admin</a><a href="/bolsas">Bolsas</a><a href="/calzado/dama">Calzado dama</a><a href="/calzado/infantil">Calzado infantil</a><a href="/mayoreo">Mayoreo</a><button onClick={() => goTo("destacados")}>Novedades</button><button onClick={() => goTo("oportunidad")}>Vende sin invertir</button><button onClick={() => goTo("catalogos")}>Catálogos</button><button onClick={() => goTo("pedidos")}>Pedidos</button><button onClick={() => goTo("contacto")}>Contacto</button></nav>
       <p>Estilo que te acompaña.</p>
     </div>
 
@@ -105,8 +108,8 @@ export default function Home() {
 
     <nav className="category-ribbon">
       <a href="/bolsas"><img src="/images/ramber-bag-tile.png" alt="Bolsa"/><strong>Bolsas</strong></a>
-      <button onClick={() => goTo("calzado")}><img src="/images/ramber-shoe-tile.png" alt="Calzado para dama"/><strong>Calzado dama</strong></button>
-      <button onClick={() => goTo("calzado")}><span className="catalog-mini">RAMBER<small>INFANTIL</small></span><strong>Calzado infantil</strong></button>
+      <a href="/calzado/dama"><img src="/images/ramber-shoe-tile.png" alt="Calzado para dama"/><strong>Calzado dama</strong></a>
+      <a href="/calzado/infantil"><span className="catalog-mini">RAMBER<small>INFANTIL</small></span><strong>Calzado infantil</strong></a>
       <button onClick={() => goTo("destacados")}><img src="/images/ramber-shoe-tile.png" alt="Nuevos modelos"/><strong>Nuevos modelos</strong></button>
       <button onClick={() => goTo("catalogos")}><span className="catalog-mini">RAMBER<small>CATÁLOGOS</small></span><strong>Catálogos</strong></button>
     </nav>
@@ -130,7 +133,7 @@ export default function Home() {
 
     {news.length > 0 && <section className="section news-section"><div className="section-heading reveal"><p className="eyebrow wine">RECIÉN LLEGADO</p><h2>Novedades RAMBER</h2><p>Conoce promociones, colecciones y modelos nuevos.</p></div><div className="news-grid">{news.map((item) => <article className="news-card reveal" key={item.id}>{item.imageUrl && <img src={item.imageUrl} alt={item.title}/>}<div><h3>{item.title}</h3>{item.body && <p>{item.body}</p>}<a href="/bolsas">Ver colección</a></div></article>)}</div></section>}
 
-    <section id="calzado" className="section footwear-section"><div className="section-heading reveal"><p className="eyebrow wine">{content.footwearEyebrow}</p><h2>{content.footwearTitle}</h2><p>{content.footwearText}</p></div><div className="footwear-grid"><article className="footwear-card reveal"><img src={content.womenShoesImage} alt="Calzado para dama RAMBER"/><div><p>RAMBER</p><h3>{content.womenShoesTitle}</h3><span>{content.womenShoesText}</span></div></article><article className="footwear-card reveal">{content.kidsShoesImage ? <img src={content.kidsShoesImage} alt="Calzado infantil RAMBER"/> : <div className="footwear-kids">RAMBER<small>INFANTIL</small></div>}<div><p>RAMBER</p><h3>{content.kidsShoesTitle}</h3><span>{content.kidsShoesText}</span></div></article></div></section>
+    <section id="calzado" className="section footwear-section"><div className="section-heading reveal"><p className="eyebrow wine">{content.footwearEyebrow}</p><h2>{content.footwearTitle}</h2><p>{content.footwearText}</p></div><div className="footwear-grid"><a className="footwear-card reveal" href="/calzado/dama"><img src={content.womenShoesImage} alt="Calzado para dama RAMBER"/><div><p>RAMBER</p><h3>{content.womenShoesTitle}</h3><span>{content.womenShoesText}</span><b>Ver álbum →</b></div></a><a className="footwear-card reveal" href="/calzado/infantil">{content.kidsShoesImage ? <img src={content.kidsShoesImage} alt="Calzado infantil RAMBER"/> : <div className="footwear-kids">RAMBER<small>INFANTIL</small></div>}<div><p>RAMBER</p><h3>{content.kidsShoesTitle}</h3><span>{content.kidsShoesText}</span><b>Ver álbum →</b></div></a></div></section>
 
     <section id="catalogos" className="section catalogs-section">
       <div className="section-heading reveal"><p className="download-mark">{content.catalogEyebrow}</p><h2>{content.catalogTitle}</h2><p>{content.catalogText}</p></div>
