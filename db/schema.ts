@@ -1,4 +1,4 @@
-import { integer, sqliteTable, text, uniqueIndex } from "drizzle-orm/sqlite-core";
+import { index, integer, sqliteTable, text, uniqueIndex } from "drizzle-orm/sqlite-core";
 
 export const siteSettings = sqliteTable("site_settings", {
   key: text("key").primaryKey(),
@@ -64,3 +64,64 @@ export const shoeProductImages = sqliteTable("shoe_product_images", {
   imageUrl: text("image_url").notNull(),
   sortOrder: integer("sort_order").notNull().default(0),
 });
+
+// Inventario RAMBER: una existencia siempre corresponde a variante/color + talla + sucursal.
+export const branches = sqliteTable("branches", {
+  id: text("id").primaryKey(),
+  name: text("name").notNull(),
+  shortName: text("short_name").notNull(),
+  address: text("address").notNull().default(""),
+  phone: text("phone").notNull().default(""),
+  isActive: integer("is_active", { mode: "boolean" }).notNull().default(true),
+  createdAt: text("created_at").notNull(),
+});
+
+export const shoeProductVariants = sqliteTable("shoe_product_variants", {
+  id: integer("id").primaryKey({ autoIncrement: true }),
+  productId: integer("product_id").notNull().references(() => shoeProducts.id, { onDelete: "cascade" }),
+  color: text("color").notNull(),
+  createdAt: text("created_at").notNull(),
+  updatedAt: text("updated_at").notNull(),
+}, (table) => [uniqueIndex("shoe_product_variants_product_color_unique").on(table.productId, table.color)]);
+
+export const branchStock = sqliteTable("branch_stock", {
+  id: integer("id").primaryKey({ autoIncrement: true }),
+  variantId: integer("variant_id").notNull().references(() => shoeProductVariants.id, { onDelete: "cascade" }),
+  size: text("size").notNull(),
+  branchId: text("branch_id").notNull().references(() => branches.id),
+  quantity: integer("quantity").notNull().default(0),
+  lowStockThreshold: integer("low_stock_threshold").notNull().default(2),
+  updatedAt: text("updated_at").notNull(),
+}, (table) => [
+  uniqueIndex("branch_stock_variant_size_branch_unique").on(table.variantId, table.size, table.branchId),
+  index("idx_branch_stock_branch_variant").on(table.branchId, table.variantId),
+]);
+
+export const inventoryTransfers = sqliteTable("inventory_transfers", {
+  id: text("id").primaryKey(),
+  originBranchId: text("origin_branch_id").notNull().references(() => branches.id),
+  destinationBranchId: text("destination_branch_id").notNull().references(() => branches.id),
+  createdAt: text("created_at").notNull(),
+  userId: text("user_id"),
+  note: text("note").notNull().default(""),
+});
+
+export const inventoryMovements = sqliteTable("inventory_movements", {
+  id: text("id").primaryKey(),
+  productId: integer("product_id").notNull().references(() => shoeProducts.id, { onDelete: "cascade" }),
+  variantId: integer("variant_id").notNull().references(() => shoeProductVariants.id, { onDelete: "cascade" }),
+  size: text("size").notNull(),
+  branchId: text("branch_id").notNull().references(() => branches.id),
+  type: text("type").notNull(),
+  quantityDelta: integer("quantity_delta").notNull(),
+  quantityBefore: integer("quantity_before").notNull(),
+  quantityAfter: integer("quantity_after").notNull(),
+  reason: text("reason").notNull().default(""),
+  referenceId: text("reference_id"),
+  userId: text("user_id"),
+  createdAt: text("created_at").notNull(),
+}, (table) => [
+  index("idx_inventory_movements_created_at").on(table.createdAt),
+  index("idx_inventory_movements_branch_created_at").on(table.branchId, table.createdAt),
+  index("idx_inventory_movements_product_variant").on(table.productId, table.variantId),
+]);
