@@ -44,6 +44,8 @@ export const shoeProducts = sqliteTable("shoe_products", {
   primaryImageZoom: integer("primary_image_zoom").notNull().default(100),
   primaryImageX: integer("primary_image_x").notNull().default(50),
   primaryImageY: integer("primary_image_y").notNull().default(50),
+  createdBy: text("created_by"),
+  updatedBy: text("updated_by"),
   createdAt: text("created_at").notNull(),
   updatedAt: text("updated_at").notNull(),
 }, (table) => [
@@ -125,3 +127,53 @@ export const inventoryMovements = sqliteTable("inventory_movements", {
   index("idx_inventory_movements_branch_created_at").on(table.branchId, table.createdAt),
   index("idx_inventory_movements_product_variant").on(table.productId, table.variantId),
 ]);
+
+// Oficina Virtual: identidad, permisos explícitos y relación operativa con sucursales.
+// Los PIN se persisten como hash + salt PBKDF2, nunca en texto plano.
+export const roles = sqliteTable("roles", {
+  id: text("id").primaryKey(),
+  code: text("code").notNull(),
+  name: text("name").notNull(),
+  description: text("description").notNull().default(""),
+  createdAt: text("created_at").notNull(),
+}, (table) => [uniqueIndex("roles_code_unique").on(table.code)]);
+
+export const permissions = sqliteTable("permissions", {
+  code: text("code").primaryKey(),
+  label: text("label").notNull(),
+  group: text("group").notNull(),
+  createdAt: text("created_at").notNull(),
+});
+
+export const rolePermissions = sqliteTable("role_permissions", {
+  roleId: text("role_id").notNull().references(() => roles.id, { onDelete: "cascade" }),
+  permissionCode: text("permission_code").notNull().references(() => permissions.code, { onDelete: "cascade" }),
+}, (table) => [uniqueIndex("role_permissions_unique").on(table.roleId, table.permissionCode)]);
+
+export const employees = sqliteTable("employees", {
+  id: text("id").primaryKey(),
+  loginName: text("login_name").notNull(),
+  firstName: text("first_name").notNull(),
+  lastName: text("last_name").notNull().default(""),
+  phone: text("phone").notNull().default(""),
+  email: text("email").notNull().default(""),
+  pinHash: text("pin_hash").notNull(),
+  pinSalt: text("pin_salt").notNull(),
+  roleId: text("role_id").notNull().references(() => roles.id),
+  position: text("position").notNull().default(""),
+  branchId: text("branch_id").references(() => branches.id),
+  joinedAt: text("joined_at").notNull(),
+  isActive: integer("is_active", { mode: "boolean" }).notNull().default(true),
+  photoUrl: text("photo_url").notNull().default(""),
+  payType: text("pay_type").notNull().default(""),
+  payRate: integer("pay_rate"),
+  internalNotes: text("internal_notes").notNull().default(""),
+  createdAt: text("created_at").notNull(),
+  updatedAt: text("updated_at").notNull(),
+}, (table) => [uniqueIndex("employees_login_name_unique").on(table.loginName)]);
+
+export const employeePermissions = sqliteTable("employee_permissions", {
+  employeeId: text("employee_id").notNull().references(() => employees.id, { onDelete: "cascade" }),
+  permissionCode: text("permission_code").notNull().references(() => permissions.code, { onDelete: "cascade" }),
+  allowed: integer("allowed", { mode: "boolean" }).notNull(),
+}, (table) => [uniqueIndex("employee_permissions_unique").on(table.employeeId, table.permissionCode)]);
