@@ -1,20 +1,12 @@
 import { NextResponse } from "next/server";
 import { and, asc, desc, eq, inArray } from "drizzle-orm";
 import { getDb } from "@/db";
-import { shoeProductImages, shoeProducts, shoeProductSizes } from "@/db/schema";
+import { branchStock, shoeProductImages, shoeProductVariants, shoeProducts } from "@/db/schema";
+import { cleanProduct, type ProductPayload } from "./product-data";
 
 export const dynamic = "force-dynamic";
-type Payload = { category?: "dama" | "infantil"; model?: string; sku?: string; name?: string; description?: string; color?: string; publicPrice?: number; promoPrice?: number | null; inOffer?: boolean; isActive?: boolean; primaryImageUrl?: string; imageUrls?: string[]; sizes?: string[] };
 
 async function requireAdmin() { const { hasAdminSession } = await import("@/app/admin-auth"); return hasAdminSession(); }
-function cleanPayload(body: Payload) {
-  const sizes = Array.from(new Set((body.sizes || []).map(String).filter(Boolean)));
-  const imageUrls = Array.from(new Set((body.imageUrls || []).map(String).filter(Boolean)));
-  const category = body.category;
-  if (!category || !["dama", "infantil"].includes(category) || !body.model?.trim() || !body.name?.trim() || !body.color?.trim() || !Number.isInteger(body.publicPrice) || body.publicPrice < 0 || !sizes.length || !body.primaryImageUrl || !imageUrls.length) return null;
-  if (body.promoPrice !== null && body.promoPrice !== undefined && (!Number.isInteger(body.promoPrice) || body.promoPrice < 0)) return null;
-  return { category, model: body.model.trim(), sku: body.sku?.trim() || null, name: body.name.trim(), description: body.description?.trim() || "", color: body.color.trim(), publicPrice: body.publicPrice, promoPrice: body.promoPrice ?? null, inOffer: Boolean(body.inOffer), isActive: body.isActive !== false, primaryImageUrl: body.primaryImageUrl, imageUrls, sizes };
-}
 
 export async function GET(request: Request) {
   if (!(await requireAdmin())) return NextResponse.json({ error: "No autorizado" }, { status: 401 });
@@ -22,26 +14,49 @@ export async function GET(request: Request) {
   const db = getDb();
   const products = await db.select().from(shoeProducts).where(category && ["dama", "infantil"].includes(category) ? eq(shoeProducts.category, category) : undefined).orderBy(desc(shoeProducts.id));
   const ids = products.map((product) => product.id);
-  const [sizes, images] = ids.length ? await Promise.all([
-    db.select().from(shoeProductSizes).where(inArray(shoeProductSizes.productId, ids)).orderBy(asc(shoeProductSizes.size)),
+  const [variants, stocks, images] = ids.length ? await Promise.all([
+    db.select().from(shoeProductVariants).where(inArray(shoeProductVariants.productId, ids)),
+    db.select().from(branchStock),
     db.select().from(shoeProductImages).where(inArray(shoeProductImages.productId, ids)).orderBy(asc(shoeProductImages.sortOrder)),
-  ]) : [[], []];
-  return NextResponse.json({ items: products.map((product) => ({ ...product, sizes: sizes.filter((size) => size.productId === product.id).map((size) => size.size), images: images.filter((image) => image.productId === product.id).map((image) => image.imageUrl) })) });
+  ]) : [[], [], []];
+  return NextResponse.json({ items: products.map((product) => {
+    const productVariants = variants.filter((variant) => variant.productId === product.id);
+    const productStocks = stocks.filter((stock) => productVariants.some((variant) => variant.id === stock.variantId));
+    const sizes = Array.from(new Set(productStocks.map((stock) => stock.size))).sort((a, b) => Number(a) - Number(b)).map((size) => ({
+      size,
+      quantity: productStocks.filter((stock) => stock.size === size).reduce((sum, stock) => sum + stock.quantity, 0),
+    }));
+    return {
+      ...product,
+      sizes,
+      variants: productVariants.map((variant) => ({ id: variant.id, color: variant.color, stocks: productStocks.filter((stock) => stock.variantId === variant.id).map((stock) => ({ size: stock.size, branchId: stock.branchId, quantity: stock.quantity })) })),
+      images: images.filter((image) => image.productId === product.id).map((image) => image.imageUrl),
+    };
+  }) });
 }
 
 export async function POST(request: Request) {
   if (!(await requireAdmin())) return NextResponse.json({ error: "No autorizado" }, { status: 401 });
-  const data = cleanPayload(await request.json() as Payload);
-  if (!data) return NextResponse.json({ error: "Completa modelo, nombre, color, tallas, precio y foto." }, { status: 400 });
-  const db = getDb(); const now = new Date().toISOString();
+  const body = await request.json() as ProductPayload & { isActive?: boolean };
+  const data = cleanProduct(body);
+  if (!data) return NextResponse.json({ error: "Completa los datos obligatorios y revisa el descuento." }, { status: 400 });
+  const db = getDb();
+  const now = new Date().toISOString();
   try {
-    const { imageUrls, sizes, ...product } = data;
-    await db.insert(shoeProducts).values({ ...product, createdAt: now, updatedAt: now });
+    await db.insert(shoeProducts).values({
+      category: data.category, model: data.model, sku: data.sku, name: data.name, description: data.description, color: data.color,
+      costPrice: data.costPrice, publicPrice: data.publicPrice, promoPrice: data.promoPrice, inOffer: data.inOffer,
+      discountType: data.discountType, discountValue: data.discountValue, isActive: body.isActive !== false,
+      primaryImageUrl: data.primaryImageUrl, primaryImageZoom: data.primaryImageZoom, primaryImageX: data.primaryImageX, primaryImageY: data.primaryImageY,
+      createdAt: now, updatedAt: now,
+    });
     const [created] = await db.select().from(shoeProducts).where(and(eq(shoeProducts.category, data.category), eq(shoeProducts.model, data.model))).orderBy(desc(shoeProducts.id)).limit(1);
     if (!created) throw new Error("No se pudo crear el producto");
+    await db.insert(shoeProductVariants).values({ productId: created.id, color: data.color, createdAt: now, updatedAt: now });
+    const [variant] = await db.select().from(shoeProductVariants).where(eq(shoeProductVariants.productId, created.id)).limit(1);
     await db.batch([
-      ...sizes.map((size) => db.insert(shoeProductSizes).values({ productId: created.id, size })),
-      ...imageUrls.map((imageUrl, index) => db.insert(shoeProductImages).values({ productId: created.id, imageUrl, sortOrder: index })),
+      ...data.branchStocks.map((stock) => db.insert(branchStock).values({ variantId: variant.id, size: stock.size, branchId: stock.branchId, quantity: stock.quantity, updatedAt: now })),
+      ...data.imageUrls.map((imageUrl, index) => db.insert(shoeProductImages).values({ productId: created.id, imageUrl, sortOrder: index })),
     ]);
     return NextResponse.json({ ok: true, id: created.id });
   } catch (error) {

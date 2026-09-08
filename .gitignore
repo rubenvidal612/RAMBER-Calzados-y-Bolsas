@@ -29,6 +29,17 @@ yarn-error.log*
 
 # env files (can opt-in for committing if needed)
 .env*
+# local secrets (owner admin credentials / session secret)
+.dev.vars
+# playwright local session / screenshots (generated, not site assets)
+.playwright-cli/
+preview-home.png
+public/preview-home.png
+public/preview-full.png
+public/admin-panel.png
+public/admin-productos.png
+public/admin-productos-infantil.png
+public/calzado-infantil.png
 
 # vercel
 .vercel
