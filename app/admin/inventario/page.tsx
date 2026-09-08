@@ -1,2 +1,2 @@
-import InventoryPanel from "./panel";
-export default function InventoryPage() { return <InventoryPanel />; }
+import { redirect } from "next/navigation";
+export default function InventoryPage() { redirect("/admin?tab=inventario"); }

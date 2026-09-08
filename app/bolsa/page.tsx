@@ -1,8 +1,8 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { catalogProducts, type CatalogProduct } from "../catalog-products";
-import { catalogProducts2 } from "../catalog-products-2";
+
+type CatalogProduct = { id: number; catalog: string; code: string; family: string; color: string; measurements: string; features: string; image: string };
 
 const WHATSAPP = "529931520202";
 type CartItem = CatalogProduct & { quantity: number };
@@ -17,6 +17,8 @@ export default function BagDetailPage() {
   const [cartOpen, setCartOpen] = useState(false);
   const [toast, setToast] = useState("");
   const [catalogId, setCatalogId] = useState("1");
+  const [catalogProducts, setCatalogProducts] = useState<CatalogProduct[]>([]);
+  const [catalogProducts2, setCatalogProducts2] = useState<CatalogProduct[]>([]);
   const activeProducts = catalogId === "2" ? catalogProducts2 : catalogProducts;
   const variants = family ? activeProducts.filter((product) => product.family === family) : [];
   const cartCount = cart.reduce((total, item) => total + item.quantity, 0);
@@ -27,18 +29,31 @@ export default function BagDetailPage() {
   ].join("\n")) : "#";
 
   useEffect(() => {
-    const params = new URLSearchParams(window.location.search);
-    const requestedCatalog = params.get("catalogo") === "2" ? "2" : "1";
-    const products = requestedCatalog === "2" ? catalogProducts2 : catalogProducts;
-    const requested = params.get("modelo") || products[0].family;
-    const requestedCode = params.get("codigo");
-    const found = products.filter((product) => product.family.toLocaleLowerCase("es") === requested.toLocaleLowerCase("es"));
-    const safeVariants = found.length ? found : products.filter((product) => product.family === products[0].family);
-    setCatalogId(requestedCatalog);
-    setFamily(safeVariants[0].family);
-    setSelected(safeVariants.find((product) => product.code === requestedCode) || safeVariants[0]);
-    try { setCart(JSON.parse(localStorage.getItem("ramber-quote-cart") || "[]")); } catch { setCart([]); }
-    setCartReady(true);
+    let active = true;
+    fetch("/api/bags", { cache: "no-store" }).then((response) => response.json()).then((data) => {
+      if (!active) return;
+      const items = (data.items || []) as CatalogProduct[];
+      const cat1 = items.filter((item) => item.catalog !== "2");
+      const cat2 = items.filter((item) => item.catalog === "2");
+      setCatalogProducts(cat1);
+      setCatalogProducts2(cat2);
+      const params = new URLSearchParams(window.location.search);
+      const requestedCatalog = params.get("catalogo") === "2" ? "2" : "1";
+      const products = requestedCatalog === "2" ? cat2 : cat1;
+      const fallbackFamily = products[0]?.family || "";
+      const requested = params.get("modelo") || fallbackFamily;
+      const requestedCode = params.get("codigo");
+      const found = products.filter((product) => product.family.toLocaleLowerCase("es") === requested.toLocaleLowerCase("es"));
+      const safeVariants = found.length ? found : fallbackFamily ? products.filter((product) => product.family === fallbackFamily) : [];
+      setCatalogId(requestedCatalog);
+      if (safeVariants[0]) {
+        setFamily(safeVariants[0].family);
+        setSelected(safeVariants.find((product) => product.code === requestedCode) || safeVariants[0]);
+      }
+      try { setCart(JSON.parse(localStorage.getItem("ramber-quote-cart") || "[]")); } catch { setCart([]); }
+      setCartReady(true);
+    }).catch(() => { setCartReady(true); });
+    return () => { active = false; };
   }, []);
 
   useEffect(() => {

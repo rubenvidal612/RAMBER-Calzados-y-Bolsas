@@ -1,8 +1,8 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { catalogProducts, type CatalogProduct } from "../catalog-products";
-import { catalogProducts2 } from "../catalog-products-2";
+
+type CatalogProduct = { id: number; catalog: string; code: string; family: string; color: string; measurements: string; features: string; image: string };
 
 const WHATSAPP = "529931520202";
 type CartItem = CatalogProduct & { quantity: number };
@@ -18,6 +18,9 @@ export default function BagsPage() {
   const [visibleCount, setVisibleCount] = useState(24);
   const [cartReady, setCartReady] = useState(false);
   const [catalogId, setCatalogId] = useState("1");
+  const [catalogProducts, setCatalogProducts] = useState<CatalogProduct[]>([]);
+  const [catalogProducts2, setCatalogProducts2] = useState<CatalogProduct[]>([]);
+  const [loading, setLoading] = useState(true);
   const cartCount = cart.reduce((total, item) => total + item.quantity, 0);
   const cartWhatsAppUrl = cart.length ? whatsappUrl([
     "Hola RAMBER, quiero solicitar una cotización:", "",
@@ -48,6 +51,18 @@ export default function BagsPage() {
   useEffect(() => {
     const requestedCatalog = new URLSearchParams(window.location.search).get("catalogo");
     if (requestedCatalog === "2") setCatalogId("2");
+  }, []);
+
+  useEffect(() => {
+    let active = true;
+    fetch("/api/bags", { cache: "no-store" }).then((response) => response.json()).then((data) => {
+      if (!active) return;
+      const items = (data.items || []) as CatalogProduct[];
+      setCatalogProducts(items.filter((item) => item.catalog !== "2"));
+      setCatalogProducts2(items.filter((item) => item.catalog === "2"));
+      setLoading(false);
+    }).catch(() => { if (active) setLoading(false); });
+    return () => { active = false; };
   }, []);
 
   const changeCatalog = (nextCatalog: string) => {
@@ -124,7 +139,8 @@ export default function BagsPage() {
         <img src={group.displayVariant.image} loading="lazy" alt={`Bolsa ${group.family} color ${group.displayVariant.color}`}/>
         <div className="catalog-product-info"><p>MODELO</p><h3>{group.family}</h3><strong>{search.trim() ? `${group.displayVariant.color} · Modelo ${group.displayVariant.code}` : `${group.variants.length} colores disponibles`}</strong><span>{group.displayVariant.measurements}</span><span className="view-colors-button">Ver todos los colores</span></div>
       </a>)}</div>
-      {!filteredGroups.length && <div className="no-results"><h3>No encontramos ese modelo</h3><p>Prueba con otro número, color o colección.</p></div>}
+      {loading && <div className="no-results"><h3>Cargando modelos…</h3><p>Un momento, por favor.</p></div>}
+      {!loading && !filteredGroups.length && <div className="no-results"><h3>No encontramos ese modelo</h3><p>Prueba con otro número, color o colección.</p></div>}
       {visibleCount < filteredGroups.length && <button className="load-more-button" onClick={() => setVisibleCount((count) => count + 24)}>Ver más modelos</button>}
     </section>
 

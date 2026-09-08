@@ -177,3 +177,18 @@ export const employeePermissions = sqliteTable("employee_permissions", {
   permissionCode: text("permission_code").notNull().references(() => permissions.code, { onDelete: "cascade" }),
   allowed: integer("allowed", { mode: "boolean" }).notNull(),
 }, (table) => [uniqueIndex("employee_permissions_unique").on(table.employeeId, table.permissionCode)]);
+
+// Catálogo de bolsas (Catálogo 1 y Catálogo 2). Editable desde el panel de administración.
+export const bagProducts = sqliteTable("bag_products", {
+  id: integer("id").primaryKey({ autoIncrement: true }),
+  catalog: text("catalog").notNull().default("1"),
+  code: text("code").notNull(),
+  family: text("family").notNull(),
+  color: text("color").notNull(),
+  measurements: text("measurements").notNull().default(""),
+  features: text("features").notNull().default(""),
+  image: text("image").notNull(),
+  isActive: integer("is_active", { mode: "boolean" }).notNull().default(true),
+  createdAt: text("created_at").notNull(),
+  updatedAt: text("updated_at").notNull(),
+}, (table) => [uniqueIndex("bag_products_catalog_code_unique").on(table.catalog, table.code), index("idx_bag_products_catalog_family").on(table.catalog, table.family)]);
